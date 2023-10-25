@@ -18,6 +18,7 @@ using namespace R2;
 namespace R2
 {
 	CHostState* g_pHostState;
+	bool canCheckSquirrel;
 } // namespace R2
 
 std::string sLastMode;
@@ -166,6 +167,7 @@ AUTOHOOK(CHostState__FrameUpdate, engine.dll + 0x16DB00,
 void, __fastcall, (CHostState* self, double flCurrentTime, float flFrameTime))
 // clang-format on
 {
+	canCheckSquirrel = true;
 	CHostState__FrameUpdate(self, flCurrentTime, flFrameTime);
 
 	if (*R2::g_pServerState == R2::server_state_t::ss_active)
@@ -188,6 +190,7 @@ void, __fastcall, (CHostState* self, double flCurrentTime, float flFrameTime))
 		g_pSquirrel<ScriptContext::SERVER>->ProcessMessageBuffer();
 
 	g_pGameStatePresence->RunFrame();
+	canCheckSquirrel = false;
 }
 
 ON_DLL_LOAD_RELIESON("engine.dll", HostState, ConVar, (CModule module))
@@ -195,4 +198,9 @@ ON_DLL_LOAD_RELIESON("engine.dll", HostState, ConVar, (CModule module))
 	AUTOHOOK_DISPATCH()
 
 	g_pHostState = module.Offset(0x7CF180).RCast<CHostState*>();
+}
+
+bool CanCheckSquirrel()
+{
+	return canCheckSquirrel;
 }

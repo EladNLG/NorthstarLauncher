@@ -410,6 +410,7 @@ template <ScriptContext context> class SquirrelManager : public virtual Squirrel
 		m_pSQVM = nullptr;
 	}
 
+	void FunnyDebugger(CSquirrelVM* sqvm); // we dont want people calling this dear god
 	void VMCreated(CSquirrelVM* newSqvm);
 	void VMDestroyed();
 	void ExecuteCode(const char* code);

@@ -43,3 +43,5 @@ namespace R2
 
 	extern CHostState* g_pHostState;
 } // namespace R2
+
+bool CanCheckSquirrel();

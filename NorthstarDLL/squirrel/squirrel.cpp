@@ -8,6 +8,7 @@
 #include "core/tier0.h"
 #include "plugins/plugin_abi.h"
 #include "plugins/plugins.h"
+#include "engine/hoststate.h"
 
 #include <any>
 
@@ -228,6 +229,85 @@ template class SquirrelManager<ScriptContext::SERVER>;
 template class SquirrelManager<ScriptContext::CLIENT>;
 template class SquirrelManager<ScriptContext::UI>;
 
+// side note, this should be private/protected.
+template <ScriptContext context> void SquirrelManager<context>::FunnyDebugger(CSquirrelVM* csqvm)
+{
+	// god help me
+	std::thread debugSqvm(
+		[csqvm]()
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+			std::vector<SQStackInfos> stackInfos;
+			std::vector<int> executionTime;
+			while (csqvm != nullptr)
+			{
+				std::this_thread::sleep_for(std::chrono::microseconds(1));
+				HSquirrelVM* sqvm = csqvm->sqvm;
+				int callstackSize = sqvm->_callstacksize;
+
+				if (csqvm->sqvm == nullptr || callstackSize <= 0 || CanCheckSquirrel())
+					continue;
+
+				if (callstackSize < stackInfos.size())
+				{
+					for (int i = callstackSize; i < stackInfos.size(); i++)
+					{
+						if (executionTime[i] < 100)
+							continue;
+
+						spdlog::warn(
+							"Function {} (From scripts/vscripts/{}) took {}ms to execute",
+							stackInfos[i]._name,
+							stackInfos[i]._sourceName,
+							executionTime[i] / 1000.0);
+					}
+					stackInfos.erase(stackInfos.begin() + callstackSize, stackInfos.end());
+					executionTime.erase(executionTime.begin() + callstackSize, executionTime.end());
+				}
+
+				if (callstackSize <= 0)
+					continue;
+
+				for (int i = callstackSize; i > 0; i--)
+				{
+					int vectorIndex = callstackSize - i;
+
+					SQStackInfos stackInfo;
+					g_pSquirrel<context>->sq_stackinfos(sqvm, i, stackInfo);
+
+					if (vectorIndex >= stackInfos.size())
+					{
+						stackInfos.emplace_back(stackInfo);
+						executionTime.emplace_back(1);
+						continue;
+					}
+
+					if (stackInfo._name == stackInfos[vectorIndex]._name)
+					{
+						executionTime[vectorIndex] += 1;
+						continue;
+					}
+
+					int oldExecutionTime = executionTime[vectorIndex];
+					SQStackInfos oldInfo = stackInfos[vectorIndex];
+
+					stackInfos[vectorIndex] = stackInfo;
+					executionTime[vectorIndex] = 1;
+
+					if (oldExecutionTime < 100)
+						continue;
+
+					spdlog::warn(
+						"Function {} (From scripts/vscripts/{}) took {}ms to execute",
+						oldInfo._name,
+						oldInfo._sourceName,
+						oldExecutionTime / 1000.0);
+				}
+			}
+		});
+	debugSqvm.detach();
+}
+
 template <ScriptContext context> void SquirrelManager<context>::VMCreated(CSquirrelVM* newSqvm)
 {
 	m_pSQVM = newSqvm;
@@ -259,6 +339,7 @@ template <ScriptContext context> void SquirrelManager<context>::VMCreated(CSquir
 	defconst(m_pSQVM, "MAX_FOLDER_SIZE", GetMaxSaveFolderSize() / 1024);
 	g_pSquirrel<context>->messageBuffer = new SquirrelMessageBuffer();
 	g_pPluginManager->InformSQVMCreated(context, newSqvm);
+	FunnyDebugger(newSqvm);
 }
 
 template <ScriptContext context> void SquirrelManager<context>::VMDestroyed()
@@ -550,8 +631,14 @@ template <ScriptContext context> bool __fastcall CallScriptInitCallbackHook(void
 				{
 					if (modCallback.Context == realContext && modCallback.BeforeCallback.length())
 					{
-						spdlog::info("Running custom {} script callback \"{}\"", GetContextName(realContext), modCallback.BeforeCallback);
+						auto start = std::chrono::steady_clock::now();
 						CallScriptInitCallback<context>(sqvm, modCallback.BeforeCallback.c_str());
+						std::chrono::duration<double> duration = (std::chrono::steady_clock::now() - start);
+						spdlog::info(
+							"{} script callback \"{}\" took {}ms to run",
+							GetContextName(realContext),
+							modCallback.BeforeCallback.c_str(),
+							duration.count() * 1000.0);
 					}
 				}
 			}
@@ -561,7 +648,10 @@ template <ScriptContext context> bool __fastcall CallScriptInitCallbackHook(void
 	spdlog::info("{} CodeCallback {} called", GetContextName(realContext), callback);
 	if (!bShouldCallCustomCallbacks)
 		spdlog::info("Not executing custom callbacks for CodeCallback {}", callback);
+	auto _start = std::chrono::steady_clock::now();
 	bool ret = CallScriptInitCallback<context>(sqvm, callback);
+	std::chrono::duration<double> _duration = (std::chrono::steady_clock::now() - _start);
+	spdlog::info("{} script callback \"{}\" took {}ms to run", GetContextName(realContext), callback, _duration.count() * 1000.0);
 
 	// run after callbacks
 	if (bShouldCallCustomCallbacks)
@@ -577,8 +667,14 @@ template <ScriptContext context> bool __fastcall CallScriptInitCallbackHook(void
 				{
 					if (modCallback.Context == realContext && modCallback.AfterCallback.length())
 					{
-						spdlog::info("Running custom {} script callback \"{}\"", GetContextName(realContext), modCallback.AfterCallback);
+						auto start = std::chrono::steady_clock::now();
 						CallScriptInitCallback<context>(sqvm, modCallback.AfterCallback.c_str());
+						std::chrono::duration<double> duration = (std::chrono::steady_clock::now() - start);
+						spdlog::info(
+							"{} script callback \"{}\" took {}ms to run",
+							GetContextName(realContext),
+							modCallback.AfterCallback,
+							duration.count() * 1000.0);
 					}
 				}
 			}

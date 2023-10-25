@@ -79,19 +79,19 @@ enum SQObjectType : int
 /* 156 */
 union SQObjectValue
 {
-	SQString* asString;
-	SQTable* asTable;
-	SQClosure* asClosure;
-	SQFunctionProto* asFuncProto;
-	SQStructDef* asStructDef;
-	long long as64Integer;
-	SQNativeClosure* asNativeClosure;
-	SQArray* asArray;
-	HSquirrelVM* asThread;
-	float asFloat;
-	int asInteger;
-	SQUserData* asUserdata;
-	SQStructInstance* asStructInstance;
+	SQString* asString;//8
+	SQTable* asTable;//16
+	SQClosure* asClosure;//24
+	SQFunctionProto* asFuncProto;//32
+	SQStructDef* asStructDef;//40
+	long long as64Integer; // 48
+	SQNativeClosure* asNativeClosure; // 56
+	SQArray* asArray; // 64
+	HSquirrelVM* asThread; // 72
+	float asFloat; // 76
+	int asInteger;// 80
+	SQUserData* asUserdata; // 88
+	SQStructInstance* asStructInstance; // 96
 };
 
 /* 160 */
@@ -106,8 +106,8 @@ struct SQVector
 /* 128 */
 struct SQObject
 {
-	SQObjectType _Type;
-	int structNumber;
+	SQObjectType _Type;//4
+	int structNumber;//8
 	SQObjectValue _VAL;
 };
 
@@ -244,26 +244,26 @@ struct SQArray
 /* 129 */
 struct alignas(8) HSquirrelVM
 {
-	void* vftable;
-	int uiRef;
-	unsigned char gap_8[12];
-	void* _toString;
-	void* _roottable_pointer;
-	void* pointer_28;
-	CallInfo* ci;
-	CallInfo* _callstack;
-	int _callstacksize;
-	int _stackbase;
-	SQObject* _stackOfCurrentFunction;
-	SQSharedState* sharedState;
-	void* pointer_58;
-	void* pointer_60;
-	int _top;
-	SQObject* _stack;
-	unsigned char gap_78[8];
-	SQObject* _vargvstack;
-	unsigned char gap_88[8];
-	SQObject temp_reg;
+	void* vftable; //8
+	int uiRef;//12
+	unsigned char gap_8[12];//24
+	void* _toString;//32
+	void* _roottable_pointer;//40
+	void* pointer_28;//48
+	CallInfo* ci;//56
+	CallInfo* _callstack;//64
+	int _callstacksize;//68
+	int _stackbase;//72
+	SQObject* _stackOfCurrentFunction;//80
+	SQSharedState* sharedState;//88
+	void* pointer_58;//96
+	void* pointer_60;//104
+	int _top;//108
+	SQObject* _stack;//116
+	unsigned char gap_78[8];//124
+	SQObject* _vargvstack;//132
+	unsigned char gap_88[8];//140
+	SQObject temp_reg;//???
 	unsigned char gapA0[8];
 	void* pointer_A8;
 	unsigned char gap_B0[8];
